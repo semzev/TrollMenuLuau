@@ -1,4 +1,4 @@
-local menuMaker = loadstring(game:HttpGet("https://raw.githubusercontent.com/semzev/MenuMakerLuau/refs/heads/main/src.luau")()
+local menuMaker = loadstring(game:HttpGet("https://raw.githubusercontent.com/semzev/MenuMakerLuau/refs/heads/main/src.luau"))()
 local player = game.Players.LocalPlayer	
 local character = player.Character or player.CharacterAdded:Wait()
 
