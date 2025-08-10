@@ -26,9 +26,11 @@ local worldCategory = menu:CreateCategory("Misc", 3)
 
 local function getCharacter(name)
 	local lwr = string.lower
+	name = lwr(name)
+	
 	for _, v in game.Players:GetPlayers() do
-		if lwr(name) ~= lwr(v.Name) then continue end
-		return v.Character 
+		if name == lwr(v.Name) then return v.Character end
+		if name == lwr(v.DisplayName) then return v.Character end
 	end
 
 	for _, v in game.Workspace:GetChildren() do
@@ -370,25 +372,9 @@ worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, 1,
 		end
 	end,
 	function()
-		for _, v in game.Players:GetPlayers() do
-			if v == player then continue end
-			if v.Character:FindFirstChild("123Esp") then
-				
-				tweenService:Create(v.Character["123Esp"], tweenInfo, {OutlineTransparency = 1, FillTransparency = 1}):Play()
-				
-				task.delay(0.3,function()
-					if v.Character:FindFirstChild("123Esp") then v.Character:FindFirstChild("123Esp"):Destroy() end
-				end)
-			end
-			if v.Character.Head:FindFirstChild("123NameTagCool") then
-				
-				local tag =  v.Character.Head:FindFirstChild("123NameTagCool")
-				
-				tweenService:Create(tag.TextLabel, tweenInfo, {BackgroundTransparency = 1, TextTransparency = 1}):Play()
-				task.delay(0.3, function()
-					if tag then tag:Destroy() end
-				end)
-			end
+		for _, v in game.Workspace:GetDescendants() do
+			if v.Name == "123Esp" then v:Destroy() end
+			if v.Name == "123NameTagCool" then v:Destroy() end
 		end
 	end
 	
@@ -452,6 +438,22 @@ worldCategory:CreateToggleOption("f3x tools", nil, 4,
 	end
 )
 
+worldCategory:CreateToggleOption("SystemBroken script", nil, 5, 
+	function()
+		local success, err = pcall(function()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/H20CalibreYT/SystemBroken/main/script"))()
+		end)
+	end
+)
+
+worldCategory:CreateToggleOption("Other trolling hub", nil, 6, 
+	function()
+		local success, err = pcall(function()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/refs/heads/main/FE%20Trolling%20GUI.luau"))()
+		end)
+	end
+)
+
 
 character.Humanoid.Died:Connect(function()
 	local function safeDisconnect(connection)
@@ -464,6 +466,5 @@ character.Humanoid.Died:Connect(function()
 	safeDisconnect(rotateAboveCon)
 	safeDisconnect(helicopterCon)
 	safeDisconnect(followConnection)
-	
 	character = player.CharacterAdded:Wait()
 end)
