@@ -8,6 +8,7 @@ local userInputService = game:GetService("UserInputService")
 
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Exponential)
 
+local gravityNormal = workspace.Gravity
 
 local function getCharacter(name)
 	local lwr = string.lower
@@ -28,11 +29,13 @@ local function getCharacter(name)
 	return nil
 end
 
-local function heartbeatFly()
-	local currentCF = character.PrimaryPart.CFrame
-	local primary= character.PrimaryPart
+local oldPos = nil
+local function heartbeatFly(leaveState : boolean)
+	if not leaveState then character.Humanoid:ChangeState(0) end
+	local currentCF = character.PrimaryPart.CFram
+	local primary = character.PrimaryPart
 	local add = Vector3.zero
-
+	
 	if userInputService:IsKeyDown(Enum.KeyCode.W) then add += primary.CFrame.LookVector end
 	if userInputService:IsKeyDown(Enum.KeyCode.A) then add -= primary.CFrame.RightVector end
 	if userInputService:IsKeyDown(Enum.KeyCode.S) then add -= primary.CFrame.LookVector end
@@ -40,36 +43,46 @@ local function heartbeatFly()
 	if userInputService:IsKeyDown(Enum.KeyCode.Space) then add += primary.CFrame.UpVector end
 	if userInputService:IsKeyDown(Enum.KeyCode.LeftShift) then add -= primary.CFrame.UpVector end
 
-	primary.AssemblyLinearVelocity = Vector3.zero
-	primary.AssemblyAngularVelocity = Vector3.zero
-
-	currentCF += (add * (character.Humanoid.WalkSpeed / 15))
+	primary.AssemblyLinearVelocity = Vector3.new(0,0,0)
+	primary.AssemblyAngularVelocity = Vector3.new(0,0,0)
+	
+	if oldPos == nil then
+		oldPos = add
+	end
+	
+	local lerped = oldPos:Lerp(add * (character.Humanoid.WalkSpeed / 15), 0.08)
+	currentCF += lerped-- 
 	primary.CFrame = CFrame.lookAt(
 		currentCF.Position,
 		currentCF.Position + (game.Workspace.CurrentCamera.CFrame.LookVector * 2)
 	)
-
+	oldPos = lerped
 end
 
 
 -- Menu
 local menuData = {
-	"Mod Menu",
-	Color3.new(0.4, 0.4, 0.4),
-	Color3.new(0.513725, 0, 0),
-	Color3.new(0.698039, 0, 0),
-	Color3.new(0.886275, 0, 0),
-	Color3.new(0,0,0),
-	Enum.Font.Ubuntu
+	Title = "Mod Menu",
+	BackgroundColor = Color3.new(0.4, 0.4, 0.4),
+	PrimaryColor = Color3.new(0.513725, 0, 0),
+	SecondaryColor = Color3.new(0.698039, 0, 0),
+	SelectedColor = Color3.new(0.886275, 0, 0),
+	HoverColor = Color3.new(0,0,0),
+	FontColor = Color3.new(0,0,0),
+	Font = Enum.Font.Ubuntu,
+	RoundCorners = false
 }
 
 local connections = {}
 
 local menu = menuMaker.newMenu(menuData)
 
+menuMaker:Notify({Title = menuData.Title.." attached", Description = "Thanks for using!"})
+
 local playerCategory = menu:CreateCategory("Character", 1)
 local trollCategory = menu:CreateInputCategory("Troll", 2, "Targeted player:", "enter player")
 local worldCategory = menu:CreateCategory("Misc", 3)
+local settingsCategory = menu:CreateCategory("Settings", 4)
 
 -- Player Category
 local noClipCon
@@ -100,13 +113,17 @@ local flyCon
 table.insert(connections, flyCon)
 playerCategory:CreateToggleOption("Fly", Enum.KeyCode.F, 2,
 	function()
+		workspace.Gravity = 0
 		flyCon = runService.Heartbeat:Connect(function()
 			heartbeatFly()
 		end)
-		
 		character.Humanoid.PlatformStand = false
 	end,
+	
 	function()
+		oldPos = nil
+		character.Humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+		workspace.Gravity = gravityNormal
 		if flyCon then flyCon:Disconnect(); flyCon = nil end
 	end
 )
@@ -435,7 +452,7 @@ worldCategory:CreateToggleOption("Btools", nil, 3,
 	end
 )
 
-worldCategory:CreateToggleOption("Load Infinite Yield", nil, 4, 
+worldCategory:CreateToggleOption("Infinite Yield", nil, 4, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
@@ -451,7 +468,7 @@ worldCategory:CreateToggleOption("f3x tools", nil, 4,
 	end
 )
 
-worldCategory:CreateToggleOption("SystemBroken hub", nil, 5, 
+worldCategory:CreateToggleOption("SystemBrokenHub", nil, 5, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/H20CalibreYT/SystemBroken/main/script"))()
@@ -464,6 +481,18 @@ worldCategory:CreateToggleOption("Sky hub", nil, 6,
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/refs/heads/main/FE%20Trolling%20GUI.luau"))()
 		end)
+	end
+)
+
+-- Settings Category
+settingsCategory:CreateToggleOption("Detach Menu", Enum.KeyCode.Delete, 100, 
+	function()
+		for _,v in connections  do
+			if v then v:Disconnect(); v = nil end
+		end
+		menuMaker:Notify({Title = menuData.Title.." detached", Description = "Thanks for using!"})
+		menu:Destroy()
+		menu = nil
 	end
 )
 
