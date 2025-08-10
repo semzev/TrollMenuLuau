@@ -8,21 +8,6 @@ local userInputService = game:GetService("UserInputService")
 
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Exponential)
 
-local data = {
-	"Mod Menu",
-	Color3.new(0.4, 0.4, 0.4),
-	Color3.new(0.513725, 0, 0),
-	Color3.new(0.698039, 0, 0),
-	Color3.new(0.886275, 0, 0),
-	Color3.new(0,0,0),
-	Enum.Font.Ubuntu
-}
-
-local menu = menuMaker.newMenu(data)
-
-local playerCategory = menu:CreateCategory("Character", 1)
-local trollCategory = menu:CreateInputCategory("Troll", 2, "Targeted player:", "enter player")
-local worldCategory = menu:CreateCategory("Misc", 3)
 
 local function getCharacter(name)
 	local lwr = string.lower
@@ -31,11 +16,13 @@ local function getCharacter(name)
 	for _, v in game.Players:GetPlayers() do
 		if name == lwr(v.Name) then return v.Character end
 		if name == lwr(v.DisplayName) then return v.Character end
+		if not v.Character:FindFirstChild("Head") then warn("No head found.") return end
 	end
 
 	for _, v in game.Workspace:GetChildren() do
 		if lwr(name) ~= lwr(v.Name) then continue end
 		if not v:IsA("Model") and not v:FindFirstChildWhichIsA("Humanoid") then continue end
+		if not v:FindFirstChild("Head") then warn("No head found.") return end
 		return v
 	end
 	return nil
@@ -64,8 +51,29 @@ local function heartbeatFly()
 
 end
 
+
+-- Menu
+local menuData = {
+	"Mod Menu",
+	Color3.new(0.4, 0.4, 0.4),
+	Color3.new(0.513725, 0, 0),
+	Color3.new(0.698039, 0, 0),
+	Color3.new(0.886275, 0, 0),
+	Color3.new(0,0,0),
+	Enum.Font.Ubuntu
+}
+
+local connections = {}
+
+local menu = menuMaker.newMenu(menuData)
+
+local playerCategory = menu:CreateCategory("Character", 1)
+local trollCategory = menu:CreateInputCategory("Troll", 2, "Targeted player:", "enter player")
+local worldCategory = menu:CreateCategory("Misc", 3)
+
 -- Player Category
 local noClipCon
+table.insert(connections, noClipCon)
 playerCategory:CreateToggleOption("NoClip", Enum.KeyCode.E, 1,
 	function()
 		noClipCon = runService.RenderStepped:Connect(function()
@@ -89,6 +97,7 @@ playerCategory:CreateToggleOption("NoClip", Enum.KeyCode.E, 1,
 )
 
 local flyCon
+table.insert(connections, flyCon)
 playerCategory:CreateToggleOption("Fly", Enum.KeyCode.F, 2,
 	function()
 		flyCon = runService.Heartbeat:Connect(function()
@@ -121,6 +130,7 @@ playerCategory:CreateToggleOption("AirSwim", Enum.KeyCode.V, 3,
 )
 
 local infJumpCon
+table.insert(connections, infJumpCon)
 playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, 4,
 	function()
 		local humanoid = character.Humanoid
@@ -133,8 +143,6 @@ playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, 4,
 		if infJumpCon then infJumpCon:Disconnect(); infJumpCon = nil end
 	end
 )
-
-
 
 playerCategory:CreateInputOption("SpeedHack", Enum.KeyCode.X, "enter speed", 5,
 	function(input)
@@ -161,6 +169,7 @@ playerCategory:CreateInputOption("JumpHack", Enum.KeyCode.J, "enter height", 6,
 		character.Humanoid.JumpHeight = 7.2
 	end
 )
+
 
 -- Troll Category
 trollCategory:CreateInputOption("Sit on player", nil, "enter player", 1,
@@ -201,6 +210,7 @@ trollCategory:CreateInputOption("Tp to player", nil, "enter player", 2,
 )
 
 local followConnection
+table.insert(connections, followConnection)
 trollCategory:CreateInputOption("Auto follow player", nil, "enter player", 3,
 	function(input)
 		if input == nil or input == "" then return end
@@ -228,6 +238,7 @@ trollCategory:CreateInputOption("Auto follow player", nil, "enter player", 3,
 
 local helicopterCon
 local state = true
+table.insert(connections, helicopterCon)
 trollCategory:CreateInputOption("Helicopter on player", nil, "enter player", 4,
 	function(input)
 		if input == nil or input == "" then return end
@@ -266,6 +277,7 @@ trollCategory:CreateInputOption("Helicopter on player", nil, "enter player", 4,
 )
 
 local rotateAboveCon
+table.insert(connections, rotateAboveCon)
 trollCategory:CreateInputOption("Spin on player", nil, "enter player", 5,
 	function(input)
 		if input == nil or input == "" then return end
@@ -291,6 +303,7 @@ trollCategory:CreateInputOption("Spin on player", nil, "enter player", 5,
 )
 
 local faceCon
+table.insert(connections, faceCon)
 trollCategory:CreateInputOption("Look at player", nil, "enter player", 6,
 	function(input)
 		if input == nil or input == "" then return end
@@ -312,6 +325,7 @@ trollCategory:CreateInputOption("Look at player", nil, "enter player", 6,
 )
 
 local bugCon
+table.insert(connections, bugCon)
 trollCategory:CreateInputOption("Bug around player", nil, "enter player", 7,
 	function(input)
 		if input == nil or input == "" then return end
@@ -333,7 +347,7 @@ trollCategory:CreateInputOption("Bug around player", nil, "enter player", 7,
 )
 
 
--- World Category
+-- Misc Category
 worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, 1, 
 	function()
 		for _, v in game.Players:GetPlayers() do
@@ -380,7 +394,6 @@ worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, 1,
 	
 ) 
 
-local tracerCon
 worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, 2,
 	function()
 		print("Fix tracers.")
@@ -411,15 +424,7 @@ worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, 2,
 	end
 )
 
-worldCategory:CreateToggleOption("Load Infinite Yield", nil, 3, 
-	function()
-		local success, err = pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-		end)
-	end
-)
-
-worldCategory:CreateToggleOption("Btools", nil, 4, 
+worldCategory:CreateToggleOption("Btools", nil, 3, 
 	function()
 		for i = 1, 4 do
 			local Tool = Instance.new("HopperBin")
@@ -427,6 +432,14 @@ worldCategory:CreateToggleOption("Btools", nil, 4,
 			Tool.Name = tostring(i)
 			Tool.Parent = player:FindFirstChildOfClass("Backpack")
 		end
+	end
+)
+
+worldCategory:CreateToggleOption("Load Infinite Yield", nil, 4, 
+	function()
+		local success, err = pcall(function()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+		end)
 	end
 )
 
@@ -438,7 +451,7 @@ worldCategory:CreateToggleOption("f3x tools", nil, 4,
 	end
 )
 
-worldCategory:CreateToggleOption("SystemBroken script", nil, 5, 
+worldCategory:CreateToggleOption("SystemBroken hub", nil, 5, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/H20CalibreYT/SystemBroken/main/script"))()
@@ -446,7 +459,7 @@ worldCategory:CreateToggleOption("SystemBroken script", nil, 5,
 	end
 )
 
-worldCategory:CreateToggleOption("Other trolling hub", nil, 6, 
+worldCategory:CreateToggleOption("Sky hub", nil, 6, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/refs/heads/main/FE%20Trolling%20GUI.luau"))()
@@ -455,16 +468,16 @@ worldCategory:CreateToggleOption("Other trolling hub", nil, 6,
 )
 
 
-character.Humanoid.Died:Connect(function()
-	local function safeDisconnect(connection)
-		if connection then connection:Disconnect() end
-	end
+local con
+local function setupPlayerDeathConnection()
+	con = character.Humanoid.Died:Connect(function()
+		for _,v in connections do
+			if v then v:Disconnect(); v = nil end
+		end
+		con:Disconnect()
+		character = player.CharacterAdded:Wait()
+		setupPlayerDeathConnection()
+	end)
+end
 
-	safeDisconnect(noClipCon)
-	safeDisconnect(bugCon)
-	safeDisconnect(faceCon)
-	safeDisconnect(rotateAboveCon)
-	safeDisconnect(helicopterCon)
-	safeDisconnect(followConnection)
-	character = player.CharacterAdded:Wait()
-end)
+setupPlayerDeathConnection()
