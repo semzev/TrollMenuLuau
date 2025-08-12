@@ -1,6 +1,8 @@
 local menuMaker = loadstring(game:HttpGet("https://raw.githubusercontent.com/semzev/MenuMakerLuau/refs/heads/main/src.luau"))()
-local player = game.Players.LocalPlayer	
-local character = player.Character or player.CharacterAdded:Wait()
+local player : Player = game.Players.LocalPlayer	
+local character : Model = player.Character or player.CharacterAdded:Wait()
+local humanoid : Humanoid = character:WaitForChild("Humanoid")
+local camera : Camera = game.Workspace.CurrentCamera
 
 local runService = game:GetService("RunService")
 local tweenService = game:GetService("TweenService")
@@ -9,6 +11,8 @@ local userInputService = game:GetService("UserInputService")
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Exponential)
 
 local gravityNormal = workspace.Gravity
+
+local partTransparency = 0.4
 
 local function getCharacter(name)
 	local lwr = string.lower
@@ -29,10 +33,16 @@ local function getCharacter(name)
 	return nil
 end
 
+local function getNumber(input)
+	input = tostring(tonumber(input))
+	if input == nil or input == "" or input == "nil" then return nil end
+	return input
+end
+
 local oldPos = nil
 local function heartbeatFly(leaveState : boolean)
-	if not leaveState then character.Humanoid:ChangeState(0) end
-	local currentCF = character.PrimaryPart.CFram
+	if not leaveState then humanoid:ChangeState(0) end
+	local currentCF = character.PrimaryPart.CFrame
 	local primary = character.PrimaryPart
 	local add = Vector3.zero
 	
@@ -50,7 +60,7 @@ local function heartbeatFly(leaveState : boolean)
 		oldPos = add
 	end
 	
-	local lerped = oldPos:Lerp(add * (character.Humanoid.WalkSpeed / 15), 0.08)
+	local lerped = oldPos:Lerp(add * (humanoid.WalkSpeed / 15), 0.08)
 	currentCF += lerped-- 
 	primary.CFrame = CFrame.lookAt(
 		currentCF.Position,
@@ -59,6 +69,79 @@ local function heartbeatFly(leaveState : boolean)
 	oldPos = lerped
 end
 
+local cachedParts = {}
+local function addDestroyability(obj)
+	local clickDetec = Instance.new("ClickDetector", obj)
+	local con
+	con = clickDetec.MouseClick:Connect(function()
+		menuMaker:Notify({Title = "Destroy?", Description = "Click again to confirm.", Duration = 0.8})
+		
+		local con2
+		con2 = clickDetec.MouseClick:Once(function()
+			con:Disconnect()
+			con2:Disconnect()
+			obj:Destroy()
+			return
+		end)
+		
+		task.delay(5, function()
+			if con2 then con2:Disconnect(); con2 = nil end
+			return
+		end)
+	end)
+	table.insert(cachedParts, {obj, con})
+	return
+end
+
+local debugVizualize = false
+local pixelStep = 10
+local function getObjectsInFrame(frame : GuiObject, specific : any?)
+	local objects = {}
+
+	local frameSizeX = frame.AbsoluteSize.X
+	local frameSizeY = frame.AbsoluteSize.Y
+	
+	local frameStartX = frame.AbsolutePosition.X - (frameSizeX/2) + frameSizeX/2
+	local frameEndX = frame.AbsolutePosition.X + (frameSizeX/2) + frameSizeX/2
+	local frameStartY = frame.AbsolutePosition.Y - (frameSizeY/2)  + frameSizeY/2
+	local frameEndY = frame.AbsolutePosition.Y + (frameSizeY/2) + frameSizeY/2
+	
+	local params = RaycastParams.new()
+	params:AddToFilter(character)
+
+	for x = frameStartX, frameEndX, pixelStep do
+		for y = frameStartY, frameEndY, pixelStep do
+			local ray = camera:ScreenPointToRay(x,y)
+			local cast = workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
+			table.insert(objects, cast)
+		end
+	end
+	
+	if debugVizualize then
+		if player.PlayerGui:FindFirstChild("FrameAnalyzerDebugGui") then player.PlayerGui["FrameAnalyzerDebugGui"]:Destroy() end
+		local gui = Instance.new("ScreenGui", player.PlayerGui)
+		gui.Name = "FrameAnalyzerDebugGui"
+		for x = frameStartX, frameEndX, pixelStep do
+			for y = frameStartY, frameEndY, pixelStep do
+				local f = Instance.new("Frame",gui)
+				f.Position = UDim2.new(0,x,0,y); f.Size = UDim2.new(0,1,0,1)
+			end
+		end	
+	end
+	
+	if specific == "Character" then
+		local filteredObjects = {}
+		for i, v in objects do
+			if v.Instance.Parent:FindFirstChildWhichIsA("Humanoid") then
+				if filteredObjects[v.Instance.Parent] then continue end
+				filteredObjects[v.Instance.Parent] = v.Distance
+			end
+		end
+		return filteredObjects
+	end
+	
+	return objects
+end
 
 -- Menu
 local menuData = {
@@ -81,8 +164,10 @@ menuMaker:Notify({Title = menuData.Title.." attached", Description = "Thanks for
 
 local playerCategory = menu:CreateCategory("Character", 1)
 local trollCategory = menu:CreateInputCategory("Troll", 2, "Targeted player:", "enter player")
-local worldCategory = menu:CreateCategory("Misc", 3)
-local settingsCategory = menu:CreateCategory("Settings", 4)
+local localCategorty = menu:CreateCategory("Local", 3)
+local combatCategory = menu:CreateCategory("Combat", 4)
+local worldCategory = menu:CreateCategory("Misc", 5)
+local settingsCategory = menu:CreateCategory("Settings", 100)
 
 -- Player Category
 local noClipCon
@@ -117,12 +202,12 @@ playerCategory:CreateToggleOption("Fly", Enum.KeyCode.F, 2,
 		flyCon = runService.Heartbeat:Connect(function()
 			heartbeatFly()
 		end)
-		character.Humanoid.PlatformStand = false
+		humanoid.PlatformStand = false
 	end,
 	
 	function()
 		oldPos = nil
-		character.Humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+		humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
 		workspace.Gravity = gravityNormal
 		if flyCon then flyCon:Disconnect(); flyCon = nil end
 	end
@@ -132,17 +217,17 @@ playerCategory:CreateToggleOption("AirSwim", Enum.KeyCode.V, 3,
 	function()
 	
 		airSwimCon = runService.RenderStepped:Connect(function()
-			character.Humanoid:ChangeState(4)
-			character.Humanoid.WalkSpeed = 100
+			humanoid:ChangeState(4)
+			humanoid.WalkSpeed = 100
 		end)
 		
-		character.Humanoid.PlatformStand = false
+		humanoid.PlatformStand = false
 	end,
 	
 	function()
 		if airSwimCon then airSwimCon:Disconnect(); airSwimCon = nil end
-		character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
-		character.Humanoid.WalkSpeed = 16
+		humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+		humanoid.WalkSpeed = 16
 	end
 )
 
@@ -150,7 +235,7 @@ local infJumpCon
 table.insert(connections, infJumpCon)
 playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, 4,
 	function()
-		local humanoid = character.Humanoid
+		local humanoid = humanoid
 		local elapsed = 0
 		infJumpCon = userInputService.JumpRequest:Connect(function()
 			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
@@ -166,11 +251,11 @@ playerCategory:CreateInputOption("SpeedHack", Enum.KeyCode.X, "enter speed", 5,
 		if input == nil or input == "" then return end
 		input = tonumber(input)
 		if type(input) == "nil" then return end
-		character.Humanoid.WalkSpeed = input
+		humanoid.WalkSpeed = input
 	end,
 	
 	function()
-		character.Humanoid.WalkSpeed = 16
+		humanoid.WalkSpeed = 16
 	end
 )
 
@@ -179,14 +264,46 @@ playerCategory:CreateInputOption("JumpHack", Enum.KeyCode.J, "enter height", 6,
 		if input == nil or input == "" then return end
 		input = tonumber(input)
 		if type(input) == "nil" then return end
-		character.Humanoid.JumpHeight = input
+		humanoid.JumpHeight = input
 	end,
 
 	function()
-		character.Humanoid.JumpHeight = 7.2
+		humanoid.JumpHeight = 7.2
 	end
 )
 
+local iceSize = Vector3.new(5,1,5)
+local offset = Vector3.new(0,2.7,0)
+local icePathCon
+table.insert(connections, icePathCon)
+playerCategory:CreateToggleOption("Ice Path", Enum.KeyCode.K, 7,
+	function()
+		local elapsed = 0
+		icePathCon = runService.Heartbeat:Connect(function(dt)
+			elapsed += dt
+			if elapsed < 0.03 then return end
+			elapsed = 0
+			local ice = Instance.new("Part", workspace)
+			ice.Anchored = true
+			ice.Size = iceSize
+			ice.CFrame = character.PrimaryPart.CFrame
+			ice.Position = Vector3.new(ice.Position.X,(character.PrimaryPart.Position.Y - offset.Y) - 0.8, ice.Position.Z)
+			ice.BrickColor = BrickColor.new("Pastel Blue")
+			ice.Transparency = partTransparency
+			
+			task.delay(1, function()
+				tweenService:Create(ice, TweenInfo.new(1, Enum.EasingStyle.Linear), {Transparency = 1}):Play()
+				task.delay(1, function()
+					ice:Destroy()
+				end)
+			end)
+			
+		end)
+	end,
+	function()
+		if icePathCon then icePathCon:Disconnect(); icePathCon = nil end
+	end
+)
 
 -- Troll Category
 trollCategory:CreateInputOption("Sit on player", nil, "enter player", 1,
@@ -198,16 +315,16 @@ trollCategory:CreateInputOption("Sit on player", nil, "enter player", 1,
 		local runServiceCon
 		runServiceCon = runService.Heartbeat:Connect(function()
 			character.PrimaryPart.CFrame = targetedCharacter.Head.CFrame + Vector3.new(0,2,0)
-			character.Humanoid.Sit = true
+			humanoid.Sit = true
 			character.PrimaryPart.Velocity = Vector3.new(0,0,0)
 		end)
 
 		local con
-		con = character.Humanoid.Jumping:Connect(function(isJumping)
+		con = humanoid.Jumping:Connect(function(isJumping)
 			if isJumping then
 				runServiceCon:Disconnect()
 				runServiceCon = nil
-				character.Humanoid.Sit = false
+				humanoid.Sit = false
 				con:Disconnect()
 				con = nil
 				return
@@ -237,16 +354,16 @@ trollCategory:CreateInputOption("Auto follow player", nil, "enter player", 3,
 		followConnection = runService.Heartbeat:Connect(function()  
 			local distance = (targetedCharacter.PrimaryPart.Position - character.PrimaryPart.Position).Magnitude
 			if distance > 3 then
-				character.Humanoid:MoveTo(targetedCharacter.PrimaryPart.Position)
+				humanoid:MoveTo(targetedCharacter.PrimaryPart.Position)
 			else
-				character.Humanoid:MoveTo(character.PrimaryPart.Position)
+				humanoid:MoveTo(character.PrimaryPart.Position)
 			end
 		end)
 	end,
 	
 	function()
 		if followConnection then
-			character.Humanoid:MoveTo(character.PrimaryPart.Position)
+			humanoid:MoveTo(character.PrimaryPart.Position)
 			followConnection:Disconnect()
 			followConnection = nil
 		end
@@ -265,6 +382,7 @@ trollCategory:CreateInputOption("Helicopter on player", nil, "enter player", 4,
 		local rotationIndx = 0
 		local function startAnimation()
 			helicopterCon = runService.Heartbeat:Connect(function()
+				workspace.Gravity = 0
 				rotationIndx += 3
 				if rotationIndx > 360 then rotationIndx = 0 end
 				character.PrimaryPart.Velocity = Vector3.new(0, 0, 0)
@@ -285,6 +403,8 @@ trollCategory:CreateInputOption("Helicopter on player", nil, "enter player", 4,
 	
 	function()
 		if helicopterCon then
+			workspace.Gravity = gravityNormal
+			humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
 			state = false
 			helicopterCon:Disconnect()
 			helicopterCon = nil
@@ -334,7 +454,7 @@ trollCategory:CreateInputOption("Look at player", nil, "enter player", 6,
 
 	function()
 		if faceCon then
-			character.Humanoid:MoveTo(character.PrimaryPart.Position)
+			humanoid:MoveTo(character.PrimaryPart.Position)
 			faceCon:Disconnect()
 			faceCon = nil
 		end
@@ -356,13 +476,156 @@ trollCategory:CreateInputOption("Bug around player", nil, "enter player", 7,
 
 	function()
 		if bugCon then
-			character.Humanoid:MoveTo(character.PrimaryPart.Position)
+			humanoid:MoveTo(character.PrimaryPart.Position)
 			bugCon:Disconnect()
 			bugCon = nil
 		end
 	end
 )
 
+-- Combat category
+
+local aimLockCon
+local gui
+local range = 30
+table.insert(connections, aimLockCon)
+combatCategory:CreateInputOption("AimLock", Enum.KeyCode.C, "enter range", 1,
+	function(input)
+		local range = getNumber(input)
+		if range == nil then return end
+		
+		local mouse = player:GetMouse()
+		local fixedRange = range * 10
+		
+		gui = Instance.new("ScreenGui", player.PlayerGui)
+		
+		local frame = Instance.new("ImageLabel", gui) --1270305386
+		frame.AnchorPoint = Vector2.new(0.5,0.5)
+		frame.Position = UDim2.new(0.5,0,0.5,0)
+		frame.Size = UDim2.new(0,fixedRange,0,fixedRange)
+		frame.BackgroundTransparency = 1
+		frame.Image = "rbxassetid://1270305379"
+		
+		local lockedBodyPart = nil
+		aimLockCon = runService.RenderStepped:Connect(function(dt)
+			if userInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+				if lockedBodyPart == nil then
+					local charactersInFrame = getObjectsInFrame(frame, "Character")
+					if charactersInFrame == {} then return end
+
+					local closest = {nil, 0}
+					for i, v in charactersInFrame do
+						if v > closest[2] then
+							if i:FindFirstChildWhichIsA("Humanoid").Health > 0 then
+								closest = {i, v}
+							end
+						end
+					end
+
+					if closest == {nil, 0} or closest[1] == nil then return end
+
+					lockedBodyPart = closest[1]:FindFirstChild("Head") or closest[1].PrimaryPart
+					if lockedBodyPart == nil then return end
+				end
+				if lockedBodyPart.Parent.Humanoid.Health <= 0 then lockedBodyPart = nil return end
+				if lockedBodyPart == nil then return end
+				
+				camera.CFrame = CFrame.lookAt(camera.CFrame.Position, lockedBodyPart.Position)
+			else
+				lockedBodyPart = nil
+			end	
+		end)
+	end,
+	function()
+		if aimLockCon then aimLockCon:Disconnect(); aimLockCon = nil end
+		if gui then gui:Destroy(); gui = nil end
+	end
+)
+
+-- local category
+
+localCategorty:CreateToggleOption("Btools", nil, 1, 
+	function()
+		for i = 1, 4 do
+			local Tool = Instance.new("HopperBin", player:FindFirstChildOfClass("Backpack"))
+			Tool.BinType = i
+			Tool.Name = tostring(Tool.BinType)
+		end
+	end
+)
+
+local size = Vector3.new(5,1,2)
+localCategorty:CreateInputOption("Spawn staircase", nil, 'enter height', 2,
+	function(input)
+		input = tostring(tonumber(input))
+		if input == nil or input == "" or input == "nil" then return end
+		
+		local startPos
+		local model
+		local function createPart (i)
+			local newStep = Instance.new("Part", model)
+			newStep.Transparency = partTransparency
+			newStep.Anchored = false
+			newStep.Size = size
+			newStep.Position = startPos + Vector3.new(0, (size.Y + i) - 1, (size.Z / 2) * i )
+			return newStep
+		end
+		
+		local height = input
+		local direction = character.PrimaryPart.CFrame.LookVector
+		model = Instance.new("Model", workspace)
+		startPos = character.PrimaryPart.Position + Vector3.new(0,-2.5,0)
+		
+		local startPart = createPart(0)
+		startPart.Anchored = true
+		model.PrimaryPart = startPart
+		
+		for i = 1, height - 1 do
+			local part = createPart(i)
+			local weld = Instance.new("WeldConstraint", startPart)
+			weld.Part0 = startPart
+			weld.Part1 = part
+		end
+		
+		model.PrimaryPart.CFrame = CFrame.lookAt(startPos, startPos - direction)
+		addDestroyability(model)
+	end
+)
+
+localCategorty:CreateInputOption("Spawn ladder", nil, "enter height", 3,
+	function(input)
+		local height = getNumber(input)
+		if height == nil then return end
+		local startPos = character.PrimaryPart.Position
+		local direction = character.PrimaryPart.CFrame.LookVector.Unit
+
+		local ladderPos = startPos + direction * 3 + Vector3.new(0, height/2 - 2.5, 0)
+
+		local ladder = Instance.new("TrussPart")
+		ladder.Size = Vector3.new(2, height, 2)
+		ladder.Transparency = partTransparency
+		ladder.Anchored = true
+		ladder.Parent = workspace
+		ladder.Position = ladderPos
+
+		ladder.CFrame = CFrame.new(ladderPos, ladderPos + direction)
+		addDestroyability(ladder)
+	end
+)
+
+local platformSize = Vector3.new(8,1,8)
+localCategorty:CreateToggleOption("Spawn platform", nil, 4,
+	function(input)
+		local height = getNumber(input)
+		local platform = Instance.new("Part", workspace)
+		platform.Anchored = true
+		platform.Transparency = partTransparency
+		platform.Size = platformSize
+		
+		platform.Position = character.PrimaryPart.Position + Vector3.new(0,-3,0)
+		addDestroyability(platform)
+	end
+)
 
 -- Misc Category
 worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, 1, 
@@ -441,17 +704,6 @@ worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, 2,
 	end
 )
 
-worldCategory:CreateToggleOption("Btools", nil, 3, 
-	function()
-		for i = 1, 4 do
-			local Tool = Instance.new("HopperBin")
-			Tool.BinType = i
-			Tool.Name = tostring(i)
-			Tool.Parent = player:FindFirstChildOfClass("Backpack")
-		end
-	end
-)
-
 worldCategory:CreateToggleOption("Infinite Yield", nil, 4, 
 	function()
 		local success, err = pcall(function()
@@ -485,26 +737,58 @@ worldCategory:CreateToggleOption("Sky hub", nil, 6,
 )
 
 -- Settings Category
+local detachStep = 1
 settingsCategory:CreateToggleOption("Detach Menu", Enum.KeyCode.Delete, 100, 
 	function()
-		for _,v in connections  do
-			if v then v:Disconnect(); v = nil end
+		if detachStep == 1 then
+			menuMaker:Notify({Title = "Detach?", Description = "Click again to confirm.", Duration = 0.8})
+			detachStep = 2
+			task.delay(5, function()
+				detachStep = 1
+			end)
+		elseif detachStep == 2 then
+			detachStep = 1
+			for _,v in connections  do
+				if v then v:Disconnect(); v = nil end
+			end
+			menuMaker:Notify({Title = menuData.Title.." detached", Description = "Thanks for using!"})
+			menu:Destroy()
+			menu = nil
 		end
-		menuMaker:Notify({Title = menuData.Title.." detached", Description = "Thanks for using!"})
-		menu:Destroy()
-		menu = nil
+		
+	end
+)
+
+local destroyStep = 1
+settingsCategory:CreateToggleOption("Destroy all parts", nil, 99, 
+	function()
+		if destroyStep == 1 then
+			menuMaker:Notify({Title = "Destroy all parts?", Description = "Click again to confirm.", Duration = 0.8})
+			destroyStep = 2
+			task.delay(5, function()
+				destroyStep = 1
+			end)
+		elseif destroyStep == 2 then
+			destroyStep = 1
+			for _, v in cachedParts do
+				if v[2] then v[2]:Disconnect() end
+				if v[1] then v[1]:Destroy() end
+			end
+		end
 	end
 )
 
 
 local con
 local function setupPlayerDeathConnection()
-	con = character.Humanoid.Died:Connect(function()
+	con = humanoid.Died:Connect(function()
 		for _,v in connections do
-			if v then v:Disconnect(); v = nil end
+			if v ~= nil then v:Disconnect(); v = nil end
 		end
 		con:Disconnect()
 		character = player.CharacterAdded:Wait()
+		humanoid = character:FindFirstChildWhichIsA("Humanoid")
+		camera = game.Workspace.CurrentCamera
 		setupPlayerDeathConnection()
 	end)
 end
