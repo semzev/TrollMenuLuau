@@ -489,7 +489,7 @@ local aimLockCon
 local gui
 local range = 30
 table.insert(connections, aimLockCon)
-combatCategory:CreateInputOption("AimLock", Enum.KeyCode.C, "enter range", 1,
+combatCategory:CreateInputOption("1st person AimLock", Enum.KeyCode.C, "enter range", 1,
 	function(input)
 		local range = getNumber(input)
 		if range == nil then return end
@@ -507,7 +507,7 @@ combatCategory:CreateInputOption("AimLock", Enum.KeyCode.C, "enter range", 1,
 		frame.Image = "rbxassetid://1270305379"
 		
 		local lockedBodyPart = nil
-		aimLockCon = runService.RenderStepped:Connect(function(dt)
+		aimLockCon = runService.Heartbeat:Connect(function(dt)
 			if userInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
 				if lockedBodyPart == nil then
 					local charactersInFrame = getObjectsInFrame(frame, "Character")
@@ -516,9 +516,13 @@ combatCategory:CreateInputOption("AimLock", Enum.KeyCode.C, "enter range", 1,
 					local closest = {nil, 0}
 					for i, v in charactersInFrame do
 						if v > closest[2] then
-							if i:FindFirstChildWhichIsA("Humanoid").Health > 0 then
-								closest = {i, v}
+							if i:FindFirstChildWhichIsA("Humanoid").Health <= 0 then continue end
+							local targetPlayer = game.Players:GetPlayerFromCharacter(closest[1])
+							if player.Team then
+								if targetPlayer.Team == player.Team then continue end
 							end
+								
+							closest = {i, v}														
 						end
 					end
 
