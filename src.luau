@@ -236,7 +236,7 @@ playerCategory:CreateToggleOption("AirSwim", Enum.KeyCode.V, nil, 3,
 
 local infJumpCon
 table.insert(connections, infJumpCon)
-playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, "Makes you be able to jump infinitely", 4,
+playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, "Makes you able to jump infinitely", 4,
 	function()
 		local humanoid = humanoid
 		local elapsed = 0
