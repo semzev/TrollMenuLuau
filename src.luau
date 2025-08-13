@@ -9,7 +9,7 @@ local userInputService = game:GetService("UserInputService")
 
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Exponential)
 
-local gravityNormal = workspace.Gravity
+local gravityNormal = 196.2
 
 local partTransparency = 0.4
 
@@ -69,10 +69,11 @@ local function heartbeatFly(leaveState : boolean)
 		currentCF.Position + (game.Workspace.CurrentCamera.CFrame.LookVector * 2)
 	)
 	oldPos = lerped
+	return
 end
 
 local cachedParts = {}
-local function addDestroyability(obj)
+local function addDestroyability(obj : BasePart)
 	local clickDetec = Instance.new("ClickDetector", obj)
 	local con
 	con = clickDetec.MouseClick:Connect(function()
@@ -216,27 +217,10 @@ playerCategory:CreateToggleOption("Fly", Enum.KeyCode.F, "Makes you fly, speed i
 	end
 )
 
-playerCategory:CreateToggleOption("AirSwim", Enum.KeyCode.V, nil, 3,
-	function()
-	
-		airSwimCon = runService.RenderStepped:Connect(function()
-			humanoid:ChangeState(4)
-			humanoid.WalkSpeed = 100
-		end)
-		
-		humanoid.PlatformStand = false
-	end,
-	
-	function()
-		if airSwimCon then airSwimCon:Disconnect(); airSwimCon = nil end
-		humanoid:ChangeState(Enum.HumanoidStateType.Landed)
-		humanoid.WalkSpeed = 16
-	end
-)
 
 local infJumpCon
 table.insert(connections, infJumpCon)
-playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, "Makes you able to jump infinitely", 4,
+playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, "Makes you be able to jump infinitely", 4,
 	function()
 		local humanoid = humanoid
 		local elapsed = 0
@@ -272,6 +256,17 @@ playerCategory:CreateInputOption("JumpHack", Enum.KeyCode.J, "Sets your JumpHeig
 
 	function()
 		humanoid.JumpHeight = 7.2
+	end
+)
+
+playerCategory:CreateInputOption("GravityHack", Enum.KeyCode.V, "Sets the gravity to your input", "enter gravity", 7,
+	function(input)
+		local gravity = getNumber(input)
+		if gravity == nil then return end
+		workspace.Gravity = gravity
+	end,
+	function()
+		workspace.Gravity = gravityNormal
 	end
 )
 
@@ -552,6 +547,8 @@ combatCategory:CreateInputOption("1st person AimLock", nil, "Crappy aimlock", "e
 
 -- local category
 
+localCategorty:CreateDivider("Building", 0)
+
 localCategorty:CreateToggleOption("Btools", nil, "Gives you BTools", 1, 
 	function()
 		for i = 1, 4 do
@@ -600,7 +597,7 @@ localCategorty:CreateInputOption("Spawn staircase", nil, "Spawns a staircase at 
 	end
 )
 
-localCategorty:CreateInputOption("Spawn ladder", nil, "Spawns a ladder at your character, with any given height", "enter height", 3,
+localCategorty:CreateInputOption("Spawn truss", nil, "Spawns a TrussPart at your character, with any given height", "enter height", 3,
 	function(input)
 		local height = getNumber(input)
 		if height == nil then return end
@@ -635,27 +632,88 @@ localCategorty:CreateToggleOption("Spawn platform", nil, "Spawns a platform belo
 	end
 )
 
-local oldTransparencies = {}
-local xRayTransparency = 0.6
-localCategorty:CreateToggleOption("XRay", Enum.KeyCode.Z, "Makes every part transparent, so you can see trough it", 5, 
+local buildingCon
+local blockSize = Vector3.new(3,3,3)
+local uniqueName = "#$block$#"
+localCategorty:CreateToggleOption("Minecraft", nil, "Let's you build like... Minecraft", 5,
 	function()
-		for _, v in workspace:GetDescendants() do
-			if v:IsA("BasePart") then
-				if v.Parent == character or v.Parent.Parent == character or v.Parent.Parent.Parent == character then continue end
-				oldTransparencies[v] = v.Transparency
-				v.Transparency = xRayTransparency
+		local mouse = player:GetMouse()
+		
+		buildingCon = mouse.Button1Down:Connect(function()
+			local hitPos = mouse.Hit.Position
+			local target = mouse.Target
+			
+			local block = Instance.new("Part", workspace)
+			block.Name = uniqueName
+			block.Size = blockSize
+			block.Anchored = true
+		
+			if target.Name == uniqueName then
+				local blockOffset = Vector3.zero
+				local mouseSurface = mouse.TargetSurface
+				
+				if mouseSurface == Enum.NormalId.Front then
+					blockOffset = Vector3.new(0, 0, -blockSize.Z)
+				elseif mouseSurface == Enum.NormalId.Back then
+					blockOffset = Vector3.new(0, 0, blockSize.Z)
+				elseif mouseSurface == Enum.NormalId.Top then
+					blockOffset = Vector3.new(0, blockSize.Y, 0)
+				elseif mouseSurface == Enum.NormalId.Bottom then
+					blockOffset = Vector3.new(0, -blockSize.Y, 0)
+				elseif mouseSurface == Enum.NormalId.Left then
+					blockOffset = Vector3.new(-blockSize.X, 0,0)
+				elseif mouseSurface == Enum.NormalId.Right then
+					blockOffset = Vector3.new(blockSize.X, 0, 0)
+				end
+				
+				block.Position = target.Position + blockOffset
+			else
+				local posX = (math.floor(hitPos.X / blockSize.X) * blockSize.X) + blockSize.X / 2
+				local posY = (math.floor(hitPos.Y / blockSize.Y) * blockSize.Y) + blockSize.Y / 2
+				local posZ = (math.floor(hitPos.Z / blockSize.Z) * blockSize.Z) + blockSize.Z / 2
+				block.Position = Vector3.new(posX, posY, posZ)
 			end
-		end
+			
+			addDestroyability(block)
+		end)
 	end,
 	function()
+		if buildingCon then buildingCon:Disconnect(); buildingCon = nil; end
+		
+	end
+)
+
+localCategorty:CreateDivider("World", 6)
+
+local oldTransparencies = {}
+local xRayTransparency = 0.6
+local xRayCon
+localCategorty:CreateToggleOption("XRay", Enum.KeyCode.Z, "Makes every part transparent, so you can see trough it", 7, 
+	function()
+		xRayCon = runService.RenderStepped:Connect(function()
+			for _, v in workspace:GetDescendants() do
+				if v:IsA("BasePart") then
+					if oldTransparencies[v] then continue end
+					if v.Parent == character or v.Parent.Parent == character then continue end
+					oldTransparencies[v] = v.Transparency
+					v.Transparency = xRayTransparency
+				end
+			end
+		end)
+		
+	end,
+	function()
+		if xRayCon then xRayCon:Disconnect(); xRayCon = nil end
 		for i, v in oldTransparencies do
 			if i then i.Transparency = v end
 		end
+		oldTransparencies = {}
 	end
 )
 
 local oldColors = {}
-localCategorty:CreateInputOption("Change all colors", nil, "Changes every part to any color (Example input: 1,0,0 )", "R, G, B", 6,
+local colorChangeCon
+localCategorty:CreateInputOption("Change all colors", nil, "Changes every part in the game to any color (Example input: 1,0,0 )", "R, G, B", 8,
 	function(input)
 		if input == "" or input == nil then return end
 		
@@ -666,23 +724,31 @@ localCategorty:CreateInputOption("Change all colors", nil, "Changes every part t
 			color = Color3.new(r,g,b)
 		end)
 		if color == nil then return end
-
-		for _, v in workspace:GetDescendants() do
-			if v:IsA("BasePart") then
-				oldColors[v] = v.Color
-				v.Color = color
+		
+		colorChangeCon = runService.RenderStepped:Connect(function()
+			for _, v in workspace:GetDescendants() do
+				if v:IsA("BasePart") then
+					if oldColors[v] then continue end
+					oldColors[v] = v.Color
+					v.Color = color
+				end
 			end
-		end
+		end)
+		
 	end,
 	function ()
+		if colorChangeCon then colorChangeCon:Disconnect(); colorChangeCon = nil end
 		for i, v in oldColors do
 			if i then i.Color = v end
 		end
+		oldColors = {}
 	end
 )
 
 -- Misc Category
-worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, "Highlights every player's character", 1, 
+worldCategory:CreateDivider("World", -100)
+
+worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, "Highlights every character in the game", 1, 
 	function()
 		for _, v in game.Players:GetPlayers() do
 			if v == player then continue end
@@ -728,7 +794,7 @@ worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, "Highlights every player
 	
 ) 
 
-worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, "Crappy tracers, points from your character to every player's character", 2,
+worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, "Crappy tracers, points from your character to every character in the game", 2,
 	function()
 		print("Fix tracers.")
 		for _, v in workspace:GetChildren() do
@@ -758,7 +824,8 @@ worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, "Crappy tracers, poi
 	end
 )
 
-worldCategory:CreateToggleOption("Infinite Yield", nil, "Loads Infinite Yield", 4, 
+worldCategory:CreateDivider("Other hubs", 9)
+worldCategory:CreateToggleOption("Infinite Yield", nil, "Loads Infinite Yield", 10, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
@@ -766,7 +833,7 @@ worldCategory:CreateToggleOption("Infinite Yield", nil, "Loads Infinite Yield", 
 	end
 )
 
-worldCategory:CreateToggleOption("f3x tools", nil, "Loads f3x tools", 4, 
+worldCategory:CreateToggleOption("f3x tools", nil, "Loads f3x tools", 11, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/f3x.lua"))()
@@ -774,7 +841,7 @@ worldCategory:CreateToggleOption("f3x tools", nil, "Loads f3x tools", 4,
 	end
 )
 
-worldCategory:CreateToggleOption("Sky hub", nil, "Loads Sky hub", 5, 
+worldCategory:CreateToggleOption("Sky hub", nil, "Loads Sky hub", 12, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/refs/heads/main/FE%20Trolling%20GUI.luau"))()
@@ -782,7 +849,7 @@ worldCategory:CreateToggleOption("Sky hub", nil, "Loads Sky hub", 5,
 	end
 )
 
-worldCategory:CreateToggleOption("SystemBrokenHub", nil, "Loads SystemBrokenHub", 6, 
+worldCategory:CreateToggleOption("SystemBrokenHub", nil, "Loads SystemBrokenHub", 13, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/H20CalibreYT/SystemBroken/main/script"))()
@@ -814,6 +881,31 @@ settingsCategory:CreateToggleOption("Detach Menu", Enum.KeyCode.Delete, nil, 100
 	end
 )
 
+local reattachStep = 1
+settingsCategory:CreateToggleOption("Detach Menu", Enum.KeyCode.Delete, nil, 99, 
+	function()
+		if detachStep == 1 then
+			menuMaker:Notify({Title = "Reattach?", Description = "Click again to confirm.", Duration = 0.8})
+			detachStep = 2
+			task.delay(5, function()
+				detachStep = 1
+			end)
+		elseif detachStep == 2 then
+			detachStep = 1
+			for _,v in connections  do
+				if v then v:Disconnect(); v = nil end
+			end
+			menuMaker:Notify({Title = menuData.Title.." reattached", Description = "Thanks for using!"})
+			menu:Destroy()
+			menu = nil
+			task.wait(1)
+			if workspace.Gravity == 0 then workspace.Gravity = 196.2 end
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/semzev/TrollMenuLuau/refs/heads/main/src.luau"))()
+		end
+
+	end
+)
+
 local destroyStep = 1
 settingsCategory:CreateToggleOption("Destroy all parts", nil, "Destroys all placed parts from this menu", 99, 
 	function()
@@ -838,14 +930,14 @@ local con
 local function setupPlayerDeathConnection()
 	con = humanoid.Died:Connect(function()
 		for _,v in connections do
-			if v then v:Disconnect(); v = nil end
+			if connections[v] then connections[v]:Disconnect(); connections[v] = nil end
 		end
 		con:Disconnect()
 		character = player.CharacterAdded:Wait()
 		repeat
 			humanoid = character:FindFirstChildWhichIsA("Humanoid")
 			task.wait()
-		until humanoid ~= nil or humanoid:IsA("Humanoid")
+		until humanoid ~= nil and humanoid:IsA("Humanoid")
 		setupPlayerDeathConnection()
 	end)
 end
