@@ -2,7 +2,6 @@ local menuMaker = loadstring(game:HttpGet("https://raw.githubusercontent.com/sem
 local player : Player = game.Players.LocalPlayer	
 local character : Model = player.Character or player.CharacterAdded:Wait()
 local humanoid : Humanoid = character:WaitForChild("Humanoid")
-local camera : Camera = game.Workspace.CurrentCamera
 
 local runService = game:GetService("RunService")
 local tweenService = game:GetService("TweenService")
@@ -41,10 +40,13 @@ end
 
 local oldPos = nil
 local function heartbeatFly(leaveState : boolean)
-	if not leaveState then humanoid:ChangeState(0) end
+	if not leaveState then if humanoid then humanoid:ChangeState(0) end end
 	local currentCF = character.PrimaryPart.CFrame
 	local primary = character.PrimaryPart
 	local add = Vector3.zero
+	
+	if not primary then return end
+	if not currentCF then return end
 	
 	if userInputService:IsKeyDown(Enum.KeyCode.W) then add += primary.CFrame.LookVector end
 	if userInputService:IsKeyDown(Enum.KeyCode.A) then add -= primary.CFrame.RightVector end
@@ -108,10 +110,11 @@ local function getObjectsInFrame(frame : GuiObject, specific : any?)
 	
 	local params = RaycastParams.new()
 	params:AddToFilter(character)
-
+	
+	local cam = workspace.CurrentCamera
 	for x = frameStartX, frameEndX, pixelStep do
 		for y = frameStartY, frameEndY, pixelStep do
-			local ray = camera:ScreenPointToRay(x,y)
+			local ray = cam:ScreenPointToRay(x,y)
 			local cast = workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
 			table.insert(objects, cast)
 		end
@@ -172,7 +175,7 @@ local settingsCategory = menu:CreateCategory("Settings", 100)
 -- Player Category
 local noClipCon
 table.insert(connections, noClipCon)
-playerCategory:CreateToggleOption("NoClip", Enum.KeyCode.E, 1,
+playerCategory:CreateToggleOption("NoClip", Enum.KeyCode.E, "Makes your character ignore collisions", 1,
 	function()
 		noClipCon = runService.RenderStepped:Connect(function()
 			for _, v in character:GetChildren() do
@@ -196,7 +199,7 @@ playerCategory:CreateToggleOption("NoClip", Enum.KeyCode.E, 1,
 
 local flyCon
 table.insert(connections, flyCon)
-playerCategory:CreateToggleOption("Fly", Enum.KeyCode.F, 2,
+playerCategory:CreateToggleOption("Fly", Enum.KeyCode.F, "Makes you fly, speed is depending on your WalkSpeed", 2,
 	function()
 		workspace.Gravity = 0
 		flyCon = runService.Heartbeat:Connect(function()
@@ -213,7 +216,7 @@ playerCategory:CreateToggleOption("Fly", Enum.KeyCode.F, 2,
 	end
 )
 
-playerCategory:CreateToggleOption("AirSwim", Enum.KeyCode.V, 3,
+playerCategory:CreateToggleOption("AirSwim", Enum.KeyCode.V, nil, 3,
 	function()
 	
 		airSwimCon = runService.RenderStepped:Connect(function()
@@ -233,7 +236,7 @@ playerCategory:CreateToggleOption("AirSwim", Enum.KeyCode.V, 3,
 
 local infJumpCon
 table.insert(connections, infJumpCon)
-playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, 4,
+playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, "Makes you be able to jump infinitely", 4,
 	function()
 		local humanoid = humanoid
 		local elapsed = 0
@@ -246,7 +249,7 @@ playerCategory:CreateToggleOption("InfJump", Enum.KeyCode.U, 4,
 	end
 )
 
-playerCategory:CreateInputOption("SpeedHack", Enum.KeyCode.X, "enter speed", 5,
+playerCategory:CreateInputOption("SpeedHack", Enum.KeyCode.X, "Sets your WalkSpeed to your input", "enter speed", 5,
 	function(input)
 		if input == nil or input == "" then return end
 		input = tonumber(input)
@@ -259,7 +262,7 @@ playerCategory:CreateInputOption("SpeedHack", Enum.KeyCode.X, "enter speed", 5,
 	end
 )
 
-playerCategory:CreateInputOption("JumpHack", Enum.KeyCode.J, "enter height", 6,
+playerCategory:CreateInputOption("JumpHack", Enum.KeyCode.J, "Sets your JumpHeight to your input", "enter height", 6,
 	function(input)
 		if input == nil or input == "" then return end
 		input = tonumber(input)
@@ -276,7 +279,7 @@ local iceSize = Vector3.new(5,1,5)
 local offset = Vector3.new(0,2.7,0)
 local icePathCon
 table.insert(connections, icePathCon)
-playerCategory:CreateToggleOption("Ice Path", Enum.KeyCode.K, 7,
+playerCategory:CreateToggleOption("Ice Path", Enum.KeyCode.K, "Spawns ice under your character, so you can \"walk in the air\"", 7,
 	function()
 		local elapsed = 0
 		icePathCon = runService.Heartbeat:Connect(function(dt)
@@ -306,7 +309,7 @@ playerCategory:CreateToggleOption("Ice Path", Enum.KeyCode.K, 7,
 )
 
 -- Troll Category
-trollCategory:CreateInputOption("Sit on player", nil, "enter player", 1,
+trollCategory:CreateInputOption("Sit on player", nil, "Makes your character sit on any player", "enter player", 1,
 	function(input)
 		if input == nil or input == "" then return end
 		local targetedCharacter = getCharacter(input)
@@ -333,7 +336,7 @@ trollCategory:CreateInputOption("Sit on player", nil, "enter player", 1,
 	end
 )
 
-trollCategory:CreateInputOption("Tp to player", nil, "enter player", 2,
+trollCategory:CreateInputOption("Tp to player", nil, "Teleports your character to any player", "enter player", 2,
 	function(input)
 		if input == nil or input == "" then return end
 		local targetedCharacter = getCharacter(input)
@@ -345,7 +348,7 @@ trollCategory:CreateInputOption("Tp to player", nil, "enter player", 2,
 
 local followConnection
 table.insert(connections, followConnection)
-trollCategory:CreateInputOption("Auto follow player", nil, "enter player", 3,
+trollCategory:CreateInputOption("Auto follow player",  nil, "Makes your character automatically follow any player", "enter player", 3,
 	function(input)
 		if input == nil or input == "" then return end
 		local targetedCharacter = getCharacter(input)
@@ -373,7 +376,7 @@ trollCategory:CreateInputOption("Auto follow player", nil, "enter player", 3,
 local helicopterCon
 local state = true
 table.insert(connections, helicopterCon)
-trollCategory:CreateInputOption("Helicopter on player", nil, "enter player", 4,
+trollCategory:CreateInputOption("Helicopter on player",  nil, "Spins your character above any player's head, like a helicopter", "enter player", 4,
 	function(input)
 		if input == nil or input == "" then return end
 		local targetedCharacter = getCharacter(input)
@@ -415,7 +418,7 @@ trollCategory:CreateInputOption("Helicopter on player", nil, "enter player", 4,
 
 local rotateAboveCon
 table.insert(connections, rotateAboveCon)
-trollCategory:CreateInputOption("Spin on player", nil, "enter player", 5,
+trollCategory:CreateInputOption("Spin on player",  nil, "Spins your character on any player's head", "enter player", 5,
 	function(input)
 		if input == nil or input == "" then return end
 		local targetedCharacter = getCharacter(input)
@@ -441,7 +444,7 @@ trollCategory:CreateInputOption("Spin on player", nil, "enter player", 5,
 
 local faceCon
 table.insert(connections, faceCon)
-trollCategory:CreateInputOption("Look at player", nil, "enter player", 6,
+trollCategory:CreateInputOption("Look at player",  nil, "Locks your character's look direction onto any player", "enter player", 6,
 	function(input)
 		if input == nil or input == "" then return end
 		local targetedCharacter = getCharacter(input)
@@ -463,7 +466,7 @@ trollCategory:CreateInputOption("Look at player", nil, "enter player", 6,
 
 local bugCon
 table.insert(connections, bugCon)
-trollCategory:CreateInputOption("Bug around player", nil, "enter player", 7,
+trollCategory:CreateInputOption("Bug around player",  nil, "This is buggy...", "enter player", 7,
 	function(input)
 		if input == nil or input == "" then return end
 		local targetedCharacter = getCharacter(input)
@@ -489,7 +492,7 @@ local aimLockCon
 local gui
 local range = 30
 table.insert(connections, aimLockCon)
-combatCategory:CreateInputOption("1st person AimLock", Enum.KeyCode.C, "enter range", 1,
+combatCategory:CreateInputOption("1st person AimLock", nil, "Crappy aimlock", "enter range", 1,
 	function(input)
 		local range = getNumber(input)
 		if range == nil then return end
@@ -506,6 +509,7 @@ combatCategory:CreateInputOption("1st person AimLock", Enum.KeyCode.C, "enter ra
 		frame.BackgroundTransparency = 1
 		frame.Image = "rbxassetid://1270305379"
 		
+		local cam = workspace.CurrentCamera
 		local lockedBodyPart = nil
 		aimLockCon = runService.Heartbeat:Connect(function(dt)
 			if userInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
@@ -534,7 +538,7 @@ combatCategory:CreateInputOption("1st person AimLock", Enum.KeyCode.C, "enter ra
 				if lockedBodyPart.Parent.Humanoid.Health <= 0 then lockedBodyPart = nil return end
 				if lockedBodyPart == nil then return end
 				
-				camera.CFrame = CFrame.lookAt(camera.CFrame.Position, lockedBodyPart.Position)
+				cam.CFrame = CFrame.lookAt(cam.CFrame.Position, lockedBodyPart.Position)
 			else
 				lockedBodyPart = nil
 			end	
@@ -548,7 +552,7 @@ combatCategory:CreateInputOption("1st person AimLock", Enum.KeyCode.C, "enter ra
 
 -- local category
 
-localCategorty:CreateToggleOption("Btools", nil, 1, 
+localCategorty:CreateToggleOption("Btools", nil, "Gives you BTools", 1, 
 	function()
 		for i = 1, 4 do
 			local Tool = Instance.new("HopperBin", player:FindFirstChildOfClass("Backpack"))
@@ -559,7 +563,7 @@ localCategorty:CreateToggleOption("Btools", nil, 1,
 )
 
 local size = Vector3.new(5,1,2)
-localCategorty:CreateInputOption("Spawn staircase", nil, 'enter height', 2,
+localCategorty:CreateInputOption("Spawn staircase", nil, "Spawns a staircase at your character, with any given height", 'enter height', 2,
 	function(input)
 		input = tostring(tonumber(input))
 		if input == nil or input == "" or input == "nil" then return end
@@ -596,7 +600,7 @@ localCategorty:CreateInputOption("Spawn staircase", nil, 'enter height', 2,
 	end
 )
 
-localCategorty:CreateInputOption("Spawn ladder", nil, "enter height", 3,
+localCategorty:CreateInputOption("Spawn ladder", nil, "Spawns a ladder at your character, with any given height", "enter height", 3,
 	function(input)
 		local height = getNumber(input)
 		if height == nil then return end
@@ -618,7 +622,7 @@ localCategorty:CreateInputOption("Spawn ladder", nil, "enter height", 3,
 )
 
 local platformSize = Vector3.new(8,1,8)
-localCategorty:CreateToggleOption("Spawn platform", nil, 4,
+localCategorty:CreateToggleOption("Spawn platform", nil, "Spawns a platform below your character", 4,
 	function(input)
 		local height = getNumber(input)
 		local platform = Instance.new("Part", workspace)
@@ -631,8 +635,54 @@ localCategorty:CreateToggleOption("Spawn platform", nil, 4,
 	end
 )
 
+local oldTransparencies = {}
+local xRayTransparency = 0.6
+localCategorty:CreateToggleOption("XRay", Enum.KeyCode.Z, "Makes every part transparent, so you can see trough it", 5, 
+	function()
+		for _, v in workspace:GetDescendants() do
+			if v:IsA("BasePart") then
+				if v.Parent == character or v.Parent.Parent == character or v.Parent.Parent.Parent == character then continue end
+				oldTransparencies[v] = v.Transparency
+				v.Transparency = xRayTransparency
+			end
+		end
+	end,
+	function()
+		for i, v in oldTransparencies do
+			if i then i.Transparency = v end
+		end
+	end
+)
+
+local oldColors = {}
+localCategorty:CreateInputOption("Change all colors", nil, "Changes every part to any color (Example input: 1,0,0 )", "R, G, B", 6,
+	function(input)
+		if input == "" or input == nil then return end
+		
+		local split = string.split(input, ",")
+		local r,g,b = tonumber(split[1]) ,tonumber(split[2]) ,tonumber(split[3])
+		local color
+		local s, e = pcall(function()
+			color = Color3.new(r,g,b)
+		end)
+		if color == nil then return end
+
+		for _, v in workspace:GetDescendants() do
+			if v:IsA("BasePart") then
+				oldColors[v] = v.Color
+				v.Color = color
+			end
+		end
+	end,
+	function ()
+		for i, v in oldColors do
+			if i then i.Color = v end
+		end
+	end
+)
+
 -- Misc Category
-worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, 1, 
+worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, "Highlights every player's character", 1, 
 	function()
 		for _, v in game.Players:GetPlayers() do
 			if v == player then continue end
@@ -678,7 +728,7 @@ worldCategory:CreateToggleOption("ESP", Enum.KeyCode.N, 1,
 	
 ) 
 
-worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, 2,
+worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, "Crappy tracers, points from your character to every player's character", 2,
 	function()
 		print("Fix tracers.")
 		for _, v in workspace:GetChildren() do
@@ -708,7 +758,7 @@ worldCategory:CreateToggleOption("Tracers", Enum.KeyCode.T, 2,
 	end
 )
 
-worldCategory:CreateToggleOption("Infinite Yield", nil, 4, 
+worldCategory:CreateToggleOption("Infinite Yield", nil, "Loads Infinite Yield", 4, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
@@ -716,7 +766,7 @@ worldCategory:CreateToggleOption("Infinite Yield", nil, 4,
 	end
 )
 
-worldCategory:CreateToggleOption("f3x tools", nil, 4, 
+worldCategory:CreateToggleOption("f3x tools", nil, "Loads f3x tools", 4, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/f3x.lua"))()
@@ -724,15 +774,7 @@ worldCategory:CreateToggleOption("f3x tools", nil, 4,
 	end
 )
 
-worldCategory:CreateToggleOption("SystemBrokenHub", nil, 5, 
-	function()
-		local success, err = pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/H20CalibreYT/SystemBroken/main/script"))()
-		end)
-	end
-)
-
-worldCategory:CreateToggleOption("Sky hub", nil, 6, 
+worldCategory:CreateToggleOption("Sky hub", nil, "Loads Sky hub", 5, 
 	function()
 		local success, err = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/refs/heads/main/FE%20Trolling%20GUI.luau"))()
@@ -740,9 +782,18 @@ worldCategory:CreateToggleOption("Sky hub", nil, 6,
 	end
 )
 
+worldCategory:CreateToggleOption("SystemBrokenHub", nil, "Loads SystemBrokenHub", 6, 
+	function()
+		local success, err = pcall(function()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/H20CalibreYT/SystemBroken/main/script"))()
+		end)
+	end
+)
+
+
 -- Settings Category
 local detachStep = 1
-settingsCategory:CreateToggleOption("Detach Menu", Enum.KeyCode.Delete, 100, 
+settingsCategory:CreateToggleOption("Detach Menu", Enum.KeyCode.Delete, nil, 100, 
 	function()
 		if detachStep == 1 then
 			menuMaker:Notify({Title = "Detach?", Description = "Click again to confirm.", Duration = 0.8})
@@ -764,7 +815,7 @@ settingsCategory:CreateToggleOption("Detach Menu", Enum.KeyCode.Delete, 100,
 )
 
 local destroyStep = 1
-settingsCategory:CreateToggleOption("Destroy all parts", nil, 99, 
+settingsCategory:CreateToggleOption("Destroy all parts", nil, "Destroys all placed parts from this menu", 99, 
 	function()
 		if destroyStep == 1 then
 			menuMaker:Notify({Title = "Destroy all parts?", Description = "Click again to confirm.", Duration = 0.8})
@@ -787,12 +838,14 @@ local con
 local function setupPlayerDeathConnection()
 	con = humanoid.Died:Connect(function()
 		for _,v in connections do
-			if v ~= nil then v:Disconnect(); v = nil end
+			if v then v:Disconnect(); v = nil end
 		end
 		con:Disconnect()
 		character = player.CharacterAdded:Wait()
-		humanoid = character:FindFirstChildWhichIsA("Humanoid")
-		camera = game.Workspace.CurrentCamera
+		repeat
+			humanoid = character:FindFirstChildWhichIsA("Humanoid")
+			task.wait()
+		until humanoid ~= nil or humanoid:IsA("Humanoid")
 		setupPlayerDeathConnection()
 	end)
 end
